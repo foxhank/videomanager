@@ -1,0 +1,9 @@
+flask~=2.2.5
+flask_cors
+opencv-python~=4.6.0.66
+requests~=2.31.0
+jieba~=0.42.1
+matplotlib~=3.5.3
+wordcloud~=1.9.3
+pyperclip~=1.9.0
+tqdm~=4.66.1
