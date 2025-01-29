@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>视频播放</title>
     <link href="/static/bootstrap.min.css" rel="stylesheet">
     <link href="/static/FontAwesome_all.min.css" rel="stylesheet">
@@ -21,7 +21,6 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
-        /* 导航样式 */
         .nav-tabs {
             position: fixed;
             bottom: 0;
@@ -48,14 +47,24 @@
             color: white;
         }
 
-        /* 推荐页视频播放器样式 */
         .fullscreen-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .fullscreen-video.portrait {
+            width: auto;
             height: 100vh;
-            width: 100vw;
-            object-fit: cover;
-            position: fixed;
-            top: 0;
-            left: 0;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .video-info {
@@ -64,7 +73,7 @@
             left: 0;
             padding: 20px;
             width: 100%;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
             z-index: 100;
         }
 
@@ -130,11 +139,14 @@
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             }
         }
-             /* 添加视频控制相关样式 */
+
         .video-container {
-            position: relative;
-            height: 100vh;
-            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(90vh - 140px); /* Subtract nav height */
+            overflow: hidden;
         }
 
         .video-controls {
@@ -143,7 +155,7 @@
             left: 0;
             width: 100%;
             padding: 20px;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
             z-index: 101;
             opacity: 0;
             transition: opacity 0.3s;
@@ -156,7 +168,7 @@
         .progress-bar-container {
             width: 100%;
             height: 4px;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
             cursor: pointer;
             margin-bottom: 10px;
@@ -201,23 +213,78 @@
             font-size: 0.9rem;
         }
 
-        /* 横竖屏视频适配 */
-        .fullscreen-video.landscape {
-            width: 100vw;
-            height: auto;
+        .fullscreen-video {
             position: absolute;
             top: 50%;
-            transform: translateY(-50%);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
 
         .fullscreen-video.portrait {
             width: auto;
             height: 100vh;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
+            max-width: 100vw;
         }
 
+        .fullscreen-video.landscape {
+            width: 100vw;
+            height: auto;
+            max-height: 100vh;
+        }
+
+        /* CSS fixes */
+
+        /* Add smooth transition for videos */
+        .video-container .fullscreen-video {
+            transition: opacity 0.3s ease;
+        }
+
+        .video-container .fullscreen-video.fade-out {
+            opacity: 0;
+        }
+
+        .file-browser {
+            padding: 20px;
+            margin-bottom: 70px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #1e1e1e;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .file-item:hover {
+            background-color: #2a2a2a;
+        }
+
+        .file-icon {
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+
+        .file-path {
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .breadcrumb {
+            background-color: #1e1e1e;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -225,9 +292,9 @@
 <!-- 内容区域 -->
 <div class="content">
     <!-- 推荐页 -->
-    <div id="recommended" class="tab-content active">
+    <div class="tab-content active" id="recommended">
         <div class="video-container">
-            <video id="fullscreen-video" class="fullscreen-video" playsinline webkit-playsinline>
+            <video class="fullscreen-video" id="fullscreen-video" playsinline webkit-playsinline>
                 <source src="" type="video/mp4">
             </video>
             <div class="video-controls">
@@ -243,6 +310,9 @@
                     <span class="time-display">
                         <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
                     </span>
+                    <button class="control-button" id="fullscreen-toggle">
+                        <i class="fas fa-expand"></i>
+                    </button>
                 </div>
             </div>
             <div class="video-info">
@@ -254,19 +324,24 @@
 
 
     <!-- 视频列表页 -->
-    <div id="videos" class="tab-content" style="display: none;">
+    <div class="tab-content" id="videos" style="display: none;">
         <div class="video-grid" id="video-grid"></div>
     </div>
 
     <!-- 视频详情页 -->
-    <div id="video-detail" class="video-detail">
-        <video id="detail-video" class="video-player" controls>
+    <div class="video-detail" id="video-detail" style="display: none;">
+        <video class="video-player" controls id="detail-video">
             <source src="" type="video/mp4">
         </video>
         <div class="p-3">
             <h2 id="detail-title"></h2>
-            <div id="detail-stats" class="text-muted"></div>
+            <div class="text-muted" id="detail-stats"></div>
         </div>
+    </div>
+
+    <div class="tab-content" id="file-browser" style="display: none;">
+        <div class="breadcrumb" id="current-path">根目录</div>
+        <div class="file-browser" id="file-list"></div>
     </div>
 </div>
 
@@ -278,12 +353,271 @@
     <li class="nav-item">
         <a class="nav-link" data-tab="videos" href="#">视频</a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link" data-tab="file-browser" href="#">文件</a>
+    </li>
 </ul>
 
 <script>
     let currentVideoIndex = -1;
     let videoList = [];
-        function initVideoControls() {
+    const currentPathElement = document.getElementById('current-path');
+    const fileListElement = document.getElementById('file-list');
+    let currentPath = '';
+
+    // async function loadDirectory(path = '') {
+    //     try {
+    //         const response = await fetch(`/browse/${path}`);
+    //         const data = await response.json();
+    //
+    //         // Update current path display
+    //         currentPathElement.textContent = path || '根目录';
+    //
+    //         // Clear previous list
+    //         fileListElement.innerHTML = '';
+    //
+    //         // Add back button if not at root
+    //         if (path) {
+    //             const backItem = document.createElement('div');
+    //             backItem.classList.add('file-item');
+    //             backItem.innerHTML = `
+    //                 <i class="fas fa-arrow-left file-icon"></i>
+    //                 <div class="file-path">..</div>
+    //             `;
+    //             backItem.addEventListener('click', () => {
+    //                 const parentPath = path.split('/').slice(0, -1).join('/');
+    //                 loadDirectory(parentPath);
+    //             });
+    //             fileListElement.appendChild(backItem);
+    //         }
+    //
+    //         // Process folders
+    //         (data.folders || []).forEach(item => {
+    //             const fullPath = path ? `${path}/${item.name}` : item.name;
+    //             const fileItem = createFileItem(fullPath, 'directory', item.name);
+    //             fileListElement.appendChild(fileItem);
+    //         });
+    //
+    //         // Process videos
+    //         (data.videos || []).forEach(item => {
+    //             const fullPath = path ? `${path}/${item.name}` : item.name;
+    //             const fileItem = createFileItem(fullPath, 'video', item.name);
+    //             fileListElement.appendChild(fileItem);
+    //         });
+    //     } catch (error) {
+    //         console.error('Error loading directory:', error);
+    //         fileListElement.innerHTML = `<div class="text-danger">无法加载目录: ${error.message}</div>`;
+    //     }
+    // }
+    function loadDirectory(path = '') {
+        try {
+            fetch(`/browse/${path}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update current path display
+                    currentPathElement.textContent = path || '根目录';
+
+                    // Clear previous list
+                    fileListElement.innerHTML = '';
+
+                    // Add back button if not at root
+                    if (path) {
+                        const backItem = document.createElement('div');
+                        backItem.classList.add('file-item');
+                        backItem.innerHTML = `
+                        <i class="fas fa-arrow-left file-icon"></i>
+                        <div class="file-path">..</div>
+                    `;
+                        backItem.addEventListener('click', () => {
+                            const parentPath = path.split('/').slice(0, -1).join('/');
+                            loadDirectory(parentPath);
+                        });
+                        fileListElement.appendChild(backItem);
+                    }
+
+                    // Process folders
+                    (data.folders || []).forEach(item => {
+                        const fullPath = path ? `${path}/${item.name}` : item.name;
+                        const fileItem = createFileItem(fullPath, 'directory', item.name);
+                        fileListElement.appendChild(fileItem);
+                    });
+
+                    // Process videos
+                    (data.videos || []).forEach(item => {
+                        const fullPath = path ? `${path}/${item.name}` : item.name;
+                        const fileItem = createFileItem(fullPath, 'video', item.name);
+                        fileListElement.appendChild(fileItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading directory:', error);
+                    fileListElement.innerHTML = `<div class="text-danger">无法加载目录: ${error.message}</div>`;
+                });
+        } catch (error) {
+            console.error('Error in loadDirectory:', error);
+        }
+    }
+
+    function createVideoPlayerPage(videoPath) {
+        console.log('Attempting to play video:', videoPath);
+
+        // Explicitly switch tabs
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('data-tab') === 'recommended') {
+                link.classList.add('active');
+            }
+        });
+
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+        });
+
+        // Show recommended tab
+        let recommendedElement = document.getElementById('recommended');
+        recommendedElement.style.display = 'block';
+
+        // Set video source and play
+        const video = document.getElementById('fullscreen-video');
+        video.src = `/file/${encodeURIComponent(videoPath)}`;
+        video.load();
+        video.play();
+
+        // Update video info
+        document.getElementById('current-video-title').textContent = videoPath.split('/').pop();
+        document.getElementById('current-video-stats').textContent = '本地视频';
+    }
+
+    // function createFileItem(fullPath, type, name) {
+    //     const icon = type === 'directory'
+    //         ? '<i class="fas fa-folder file-icon"></i>'
+    //         : '<i class="fas fa-file-video file-icon"></i>';
+    //
+    //     const fileItem = document.createElement('div');
+    //     fileItem.classList.add('file-item');
+    //
+    //     fileItem.innerHTML = `
+    //     ${icon}
+    //     <div class="file-path">${name}</div>
+    // `;
+    //
+    // fileItem.addEventListener('click', (e) => {
+    //     e.stopPropagation();
+    //     if (type === 'directory') {
+    //         currentPath = fullPath;
+    //         loadDirectory(fullPath);
+    //     } else if (type === 'video') {
+    //         createVideoPlayerPage(fullPath);
+    //     }
+    // });
+    //
+    //     return fileItem;
+    // }
+    function createFileItem(fullPath, type, name) {
+        const icon = type === 'directory'
+            ? '<i class="fas fa-folder file-icon"></i>'
+            : '<i class="fas fa-file-video file-icon"></i>';
+
+        const fileItem = document.createElement('div');
+        fileItem.classList.add('file-item');
+        fileItem.innerHTML = `
+        ${icon}
+        <div class="file-path">${name}</div>
+    `;
+
+        fileItem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (type === 'directory') {
+                loadDirectory(fullPath);
+            } else if (type === 'video') {
+                openIndependentVideoPlayer(fullPath);
+            }
+        });
+
+        return fileItem;
+    }
+
+    function openIndependentVideoPlayer(videoPath) {
+        // Create video player overlay
+        const playerOverlay = document.createElement('div');
+        playerOverlay.className = 'file-video-player-overlay';
+        playerOverlay.innerHTML = `
+        <div class="file-video-player-container">
+            <div class="file-video-player-header">
+                <button class="file-video-back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <span class="file-video-title">${videoPath.split('/').pop()}</span>
+            </div>
+            <video class="file-video-player" controls>
+                <source src="/play/${encodeURIComponent(videoPath)}" type="video/mp4">
+            </video>
+        </div>
+    `;
+
+        // Add to body
+        document.body.appendChild(playerOverlay);
+
+        // Back button functionality
+        playerOverlay.querySelector('.file-video-back-btn').addEventListener('click', () => {
+            document.body.removeChild(playerOverlay);
+        });
+
+        // Autoplay
+        const videoElement = playerOverlay.querySelector('.file-video-player');
+        videoElement.play();
+    }
+
+    // Add CSS for the overlay
+    const styles = `
+.file-video-player-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.file-video-player-container {
+    width: 100%;
+    max-width: 800px;
+    padding: 20px;
+}
+
+.file-video-player-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.file-video-back-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    margin-right: 15px;
+    cursor: pointer;
+}
+
+.file-video-player {
+    width: 100%;
+    max-height: 80vh;
+}
+`;
+
+    const styleElement = document.createElement('style');
+    styleElement.textContent = styles;
+    document.head.appendChild(styleElement);
+
+
+    function initVideoControls() {
         const video = document.getElementById('fullscreen-video');
         const playPauseBtn = document.getElementById('play-pause');
         const progressContainer = document.getElementById('progress-container');
@@ -360,34 +694,85 @@
         }
 
         // 检测视频方向并适配
+        // function checkVideoOrientation() {
+        //     const videoRatio = video.videoWidth / video.videoHeight;
+        //     if (videoRatio > 1) {
+        //         // 横屏视频
+        //         video.classList.remove('portrait');
+        //         video.classList.add('landscape');
+        //     } else {
+        //         // 竖屏视频
+        //         video.classList.remove('landscape');
+        //         video.classList.add('portrait');
+        //     }
+        // }
         function checkVideoOrientation() {
+            const video = document.getElementById('fullscreen-video');
             const videoRatio = video.videoWidth / video.videoHeight;
+
+            // Remove previous classes
+            video.classList.remove('portrait', 'landscape');
+
             if (videoRatio > 1) {
-                // 横屏视频
-                video.classList.remove('portrait');
+                // Landscape video
                 video.classList.add('landscape');
             } else {
-                // 竖屏视频
-                video.classList.remove('landscape');
+                // Portrait video
                 video.classList.add('portrait');
             }
         }
     }
 
+    function initFullscreenToggle() {
+        const video = document.getElementById('fullscreen-video');
+        const fullscreenBtn = document.getElementById('fullscreen-toggle');
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // 初始化标签页切换
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) { // Safari
+                    video.webkitRequestFullscreen();
+                } else if (video.msRequestFullscreen) { // IE/Edge
+                    video.msRequestFullscreen();
+                }
+                fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { // Safari
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { // IE/Edge
+                    document.msExitFullscreen();
+                }
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        });
+
+        // Listen for fullscreen change events
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        });
+    }
+
+    // Call this in DOMContentLoaded
+    initFullscreenToggle();
+
+    // 修改 DOMContentLoaded 事件
+    document.addEventListener('DOMContentLoaded', function () {
         initTabSwitch();
-
-        // 加载第一个推荐视频
         loadNextRecommendedVideo();
 
-        // 加载视频列表
-        loadVideoList();
+        // 取消注释，确保初始加载视频列表
+        loadVideoList(); // 这行很关键
 
-        // 初始化滚动/滑动事件
         initScrollEvents();
         initVideoControls();
+
+        // 增加初始化无限滚动
+        initInfiniteScroll();
     });
 
     function initTabSwitch() {
@@ -407,54 +792,121 @@
                 document.getElementById(tabId).style.display = 'block';
 
                 // 如果切换到推荐页，确保视频在播放
-                if(tabId === 'recommended') {
+                if (tabId === 'recommended') {
                     document.getElementById('fullscreen-video').play();
+                }
+
+                // 如果切换到文件浏览，加载目录
+                if (tabId === 'file-browser') {
+                    loadDirectory();
                 }
             });
         });
     }
 
-    async function loadNextRecommendedVideo() {
-        try {
-            const response = await fetch('/api/get_random_video');
-            const data = await response.json();
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', () => {
+        initTabSwitch();
+    });
 
-            if(data.status === 200) {
-                const video = document.getElementById('fullscreen-video');
-                video.src = data.url;
-                video.load();
-                video.play();
+    function loadNextRecommendedVideo() {
+        const currentVideo = document.getElementById('fullscreen-video');
 
-                document.getElementById('current-video-title').textContent = data.title;
-                document.getElementById('current-video-stats').textContent = `播放量: ${data.watch}`;
+        // Add fade-out class
+        currentVideo.classList.add('fade-out');
 
-                // 将视频添加到列表中
-                videoList.push(data);
-                currentVideoIndex = videoList.length - 1;
+        // Wait for fade animation
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/api/get_random_video');
+                const data = await response.json();
+
+                if (data.status === 200) {
+                    currentVideo.src = data.url;
+                    currentVideo.load();
+
+                    // Remove fade-out class when new video loads
+                    currentVideo.addEventListener('loadeddata', () => {
+                        currentVideo.classList.remove('fade-out');
+                        currentVideo.play();
+                    }, {once: true});
+
+                    document.getElementById('current-video-title').textContent = data.title;
+                    document.getElementById('current-video-stats').textContent = `播放量: ${data.watch}`;
+
+                    videoList.push(data);
+                    currentVideoIndex = videoList.length - 1;
+                }
+            } catch (error) {
+                console.error('加载视频失败:', error);
+                // Remove fade-out if error occurs
+                currentVideo.classList.remove('fade-out');
             }
-        } catch(error) {
-            console.error('加载视频失败:', error);
-        }
+        }, 300);
     }
 
-    async function loadVideoList() {
+    // async function loadVideoList() {
+    //     try {
+    //         const response = await fetch('/api/get_random_video_list');
+    //         const data = await response.json();
+    //
+    //         if (data.message === 'success') {
+    //             const videoGrid = document.getElementById('video-grid');
+    //             videoGrid.innerHTML = '';
+    //
+    //             data.videos.forEach(video => {
+    //                 const videoCard = createVideoCard(video);
+    //                 videoGrid.appendChild(videoCard);
+    //             });
+    //         }
+    //     } catch (error) {
+    //         console.error('加载视频列表失败:', error);
+    //     }
+    // }
+    let page = 1;
+    let isLoading = false;
+
+    async function loadVideoList(resetList = true) {
+        if (isLoading) return;
+        isLoading = true;
+
         try {
-            const response = await fetch('/api/get_video_list');
+            const response = await fetch(`/api/get_random_video_list?page=${page}`);
             const data = await response.json();
 
-            if(data.message === 'success') {
+            if (data.message === 'success') {
                 const videoGrid = document.getElementById('video-grid');
-                videoGrid.innerHTML = '';
+
+                if (resetList) {
+                    videoGrid.innerHTML = '';
+                    page = 1;
+                }
 
                 data.videos.forEach(video => {
                     const videoCard = createVideoCard(video);
                     videoGrid.appendChild(videoCard);
                 });
+
+                page++;
             }
-        } catch(error) {
+
+            isLoading = false;
+        } catch (error) {
             console.error('加载视频列表失败:', error);
+            isLoading = false;
         }
     }
+
+    function initInfiniteScroll() {
+        window.addEventListener('scroll', () => {
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+                loadVideoList(false);
+            }
+        });
+    }
+
+    // Call in DOMContentLoaded
+    initInfiniteScroll();
 
     function createVideoCard(video) {
         const card = document.createElement('div');
@@ -471,28 +923,54 @@
         return card;
     }
 
-    async function loadVideoDetail(id) {
+    function loadVideoDetail(id) {
         try {
-            const response = await fetch(`/api/get_video/${id}`);
-            const data = await response.json();
+            fetch(`/api/get_video/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 200) {
+                        document.querySelectorAll('.tab-content').forEach(content => {
+                            content.style.display = 'none';
+                        });
 
-            if(data.status === 200) {
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.style.display = 'none';
+                        const detailPage = document.getElementById('video-detail');
+                        detailPage.innerHTML = `
+                        <div class="video-detail-header">
+                            <button id="back-to-videos" class="btn btn-link">
+                                <i class="fas fa-arrow-left"></i> 返回
+                            </button>
+                        </div>
+                        <video class="video-player" controls id="detail-video">
+                            <source src="${data.url}" type="video/mp4">
+                        </video>
+                        <div class="p-3">
+                            <h2 id="detail-title">${data.title}</h2>
+                            <div class="text-muted" id="detail-stats">播放量: ${data.watch}</div>
+                        </div>
+                    `;
+                        detailPage.style.display = 'block';
+
+                        // Add event listener for back button
+                        document.getElementById('back-to-videos').addEventListener('click', () => {
+                            detailPage.style.display = 'none';
+                            document.getElementById('videos').style.display = 'block';
+
+                            // Reactivate the Videos tab
+                            document.querySelectorAll('.nav-link').forEach(link => {
+                                link.classList.remove('active');
+                                if (link.getAttribute('data-tab') === 'videos') {
+                                    link.classList.add('active');
+                                }
+                            });
+                        });
+
+                        const video = document.getElementById('detail-video');
+                        if (video) {
+                            video.play();
+                        }
+                    }
                 });
-
-                const detailPage = document.getElementById('video-detail');
-                detailPage.style.display = 'block';
-
-                const video = document.getElementById('detail-video');
-                video.src = data.url;
-                video.load();
-                video.play();
-
-                document.getElementById('detail-title').textContent = data.title;
-                document.getElementById('detail-stats').textContent = `播放量: ${data.watch}`;
-            }
-        } catch(error) {
+        } catch (error) {
             console.error('加载视频详情失败:', error);
         }
     }
@@ -508,10 +986,10 @@
             const touchEndY = e.changedTouches[0].clientY;
             const diff = touchStartY - touchEndY;
 
-            if(Math.abs(diff) > 50) { // 最小滑动距离
-                if(diff > 0) {
+            if (Math.abs(diff) > 50) { // 最小滑动距离
+                if (diff > 0) {
                     loadNextRecommendedVideo();
-                } else if(currentVideoIndex > 0) {
+                } else if (currentVideoIndex > 0) {
                     playPreviousVideo();
                 }
             }
@@ -522,9 +1000,9 @@
         document.addEventListener('wheel', (e) => {
             clearTimeout(wheelTimeout);
             wheelTimeout = setTimeout(() => {
-                if(e.deltaY > 0) {
+                if (e.deltaY > 0) {
                     loadNextRecommendedVideo();
-                } else if(currentVideoIndex > 0) {
+                } else if (currentVideoIndex > 0) {
                     playPreviousVideo();
                 }
             }, 200);
@@ -532,7 +1010,7 @@
     }
 
     function playPreviousVideo() {
-        if(currentVideoIndex > 0) {
+        if (currentVideoIndex > 0) {
             currentVideoIndex--;
             const previousVideo = videoList[currentVideoIndex];
 
@@ -545,6 +1023,36 @@
             document.getElementById('current-video-stats').textContent = `播放量: ${previousVideo.watch}`;
         }
     }
+
+    let touchStartY = 0;
+    let isScrolling = false;
+
+    document.addEventListener('touchstart', (e) => {
+        if (!isScrolling) {
+            touchStartY = e.touches[0].clientY;
+        }
+    });
+
+    document.addEventListener('touchend', (e) => {
+        if (isScrolling) return;
+
+        const touchEndY = e.changedTouches[0].clientY;
+        const diff = touchStartY - touchEndY;
+
+        if (Math.abs(diff) > 50) {
+            isScrolling = true;
+            if (diff > 0) {
+                loadNextRecommendedVideo();
+            } else if (currentVideoIndex > 0) {
+                playPreviousVideo();
+            }
+
+            // Reset scrolling flag after animation
+            setTimeout(() => {
+                isScrolling = false;
+            }, 600);
+        }
+    });
 </script>
 
 </body>

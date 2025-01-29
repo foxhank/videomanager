@@ -19,6 +19,21 @@
             background-color: #f8f9fa;
         }
 
+        /* 移动端导航按钮 */
+        .nav-toggle {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
         .sidebar {
             width: 250px;
             height: 100vh;
@@ -28,13 +43,154 @@
             background-color: white;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
             z-index: 1000;
+            transition: transform 0.3s ease;
         }
 
         .main-content {
             margin-left: 250px;
             padding: 20px;
+            transition: margin-left 0.3s ease;
         }
 
+        /* 响应式样式 */
+        @media (max-width: 768px) {
+            .nav-toggle {
+                display: block;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 60px 15px 15px 15px;
+            }
+
+            /* 移动端表格响应 */
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 移动端卡片网格 */
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            /* 移动端卡片样式 */
+            .video-card {
+                background: white;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+
+            .video-card .card-img {
+                width: 100%;
+                height: 200px;
+                object-fit: cover;
+                border-radius: 8px 8px 0 0;
+            }
+
+            .video-card .card-content {
+                padding: 15px;
+            }
+
+            .video-card .video-title {
+                font-size: 16px;
+                font-weight: 500;
+                margin-bottom: 10px;
+            }
+
+            .video-card .video-stats {
+                font-size: 14px;
+                color: #666;
+                margin-bottom: 10px;
+            }
+
+            .video-card .btn-group {
+                display: flex;
+                gap: 8px;
+            }
+
+            /* 视频播放器样式优化 */
+            .video-player-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.9);
+                z-index: 1050;
+            }
+
+            .video-player-container {
+                width: 90vw;
+                max-width: 1200px;
+                height: auto;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+
+            .video-player-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px;
+                color: white;
+            }
+
+            .video-wrapper {
+                position: relative;
+                width: 100%;
+                padding-top: 56.25%; /* 16:9 宽高比 */
+            }
+
+            .video-wrapper video {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            }
+
+            .video-player-close-btn {
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 5px 10px;
+            }
+
+            /* 响应式调整 */
+            @media (max-width: 768px) {
+                .video-player-container {
+                    width: 100vw;
+                    height: auto;
+                }
+
+                .pagination {
+                    flex-wrap: wrap;
+                    justify-content: center;
+                    gap: 5px;
+                }
+
+                .pagination .page-item {
+                    margin: 2px;
+                }
+            }
+        }
+
+        /* 其他原有样式保持不变 */
         .nav-link {
             color: #333;
             padding: 15px 20px;
@@ -185,6 +341,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         /* ... 其他样式保持不变 ... */
 
 
@@ -225,6 +382,11 @@
     </style>
 </head>
 <body>
+<!-- 移动端导航按钮 -->
+<button class="nav-toggle">
+    <i class="fas fa-bars"></i>
+</button>
+
 <div class="sidebar">
     <div class="p-3">
         <h4 class="text-center text-primary mb-4">视频管理系统</h4>
@@ -241,6 +403,9 @@
             <a class="nav-link" data-page="statistics" href="#">
                 <i class="fas fa-chart-pie"></i> 统计信息
             </a>
+            <a class="nav-link" data-page="system-monitor" href="#">
+                <i class="fas fa-server"></i> 系统监控
+            </a>
         </div>
     </div>
 </div>
@@ -251,25 +416,33 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-4">视频列表</h5>
-                <table class="table">
-                    <thead>
+                <!-- 桌面端表格 -->
+                <div class="d-none d-md-block">
+                    <table class="table">
+                        <thead>
                         <tr>
                             <th>标题</th>
                             <th>封面</th>
                             <th>播放量</th>
                             <th>操作</th>
                         </tr>
-                    </thead>
-                    <tbody id="video-table-body"></tbody>
-                </table>
-                <!-- 添加分页控件 -->
-                <nav aria-label="Page navigation" style="margin-top: 20px;">
+                        </thead>
+                        <tbody id="video-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- 移动端卡片式布局 -->
+                <div class="d-md-none" id="video-cards">
+                    <!-- 卡片将通过 JS 动态生成 -->
+                </div>
+
+                <!-- 分页控件 -->
+                <nav aria-label="Page navigation" class="mt-4">
                     <ul class="pagination justify-content-center" id="pagination"></ul>
                 </nav>
             </div>
         </div>
     </div>
-
     <!-- 视频上传 -->
     <div class="content-page" id="video-upload" style="display: none;">
         <div class="card">
@@ -297,12 +470,12 @@
                 <button class="btn btn-primary mb-4" id="startDownloadTasksBtn">开始下载任务</button>
                 <table class="table">
                     <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>标题</th>
-                            <th>URL</th>
-                            <th>状态</th>
-                        </tr>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>URL</th>
+                        <th>状态</th>
+                    </tr>
                     </thead>
                     <tbody id="download-table-body"></tbody>
                 </table>
@@ -378,11 +551,13 @@
                                 <div>
                                     <div class="mb-2">
                                         <h6 class="card-title">网络使用</h6>
-                                        <img src="http://192.168.1.113:8685/?2-s" alt="网络使用图" class="chart-image" id="networkUsageImage">
+                                        <img alt="网络使用图" class="chart-image" id="networkUsageImage"
+                                             src="http://192.168.3.113:8685/?2-s">
                                     </div>
                                     <div>
                                         <h6 class="card-title">小时使用</h6>
-                                        <img src="http://192.168.1.113:8685/?2-hg" alt="小时使用图" class="chart-image" id="hourlyUsageImage">
+                                        <img alt="小时使用图" class="chart-image" id="hourlyUsageImage"
+                                             src="http://192.168.3.113:8685/?2-hg">
                                     </div>
                                 </div>
                             </div>
@@ -402,6 +577,141 @@
             </div> <!-- 关闭 .card-body -->
         </div> <!-- 关闭 .card -->
     </div> <!-- 关闭 #statistics .content-page -->
+    <!-- Add the new system monitor page content -->
+    <div class="content-page" id="system-monitor" style="display: none;">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4">系统监控</h5>
+
+                <!-- System Control Buttons -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <h6 class="mb-3">系统控制</h6>
+                    <button class="btn btn-danger me-2" data-bs-target="#shutdownModal" data-bs-toggle="modal">
+                        <i class="fas fa-power-off"></i> 关机
+                    </button>
+                    <button class="btn btn-warning" data-bs-target="#rebootModal" data-bs-toggle="modal">
+                        <i class="fas fa-sync"></i> 重启
+                    </button>
+                </div>
+
+                <!-- System Stats Grid -->
+                <div class="row">
+                    <!-- CPU Info -->
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img alt="CPU" class="me-2" src="/static/cpu.svg"
+                                         style="width: 24px; height: 24px;">
+                                    <h6 class="card-title mb-0">CPU信息</h6>
+                                </div>
+                                <p class="mb-2"><strong>型号:</strong> <span id="cpuModel"></span></p>
+                                <p class="mb-2"><strong>使用率:</strong> <span id="cpuUsage"></span></p>
+                                <p class="mb-0"><strong>频率:</strong> <span id="cpuFrequency"></span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Memory Info -->
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img alt="Memory" class="me-2" src="/static/ram.svg"
+                                         style="width: 24px; height: 24px;">
+                                    <h6 class="card-title mb-0">内存信息</h6>
+                                </div>
+                                <p class="mb-2"><strong>总内存:</strong> <span id="memoryTotal"></span></p>
+                                <p class="mb-0"><strong>已使用:</strong> <span id="memoryUsed"></span></p>
+                                <div class="progress mt-2">
+                                    <div class="progress-bar" id="memoryUsageBar" role="progressbar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network Info -->
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img alt="Network" class="me-2" src="/static/eth.svg"
+                                         style="width: 24px; height: 24px;">
+                                    <h6 class="card-title mb-0">网络接口</h6>
+                                </div>
+                                <div id="networkInterfaces"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Info -->
+                    <div class="col-md-6 col-lg-3 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img alt="System" class="me-2" src="/static/systemstatus.svg"
+                                         style="width: 24px; height: 24px;">
+                                    <h6 class="card-title mb-0">系统信息</h6>
+                                </div>
+                                <p class="mb-2"><strong>操作系统:</strong> <span id="osVersion"></span></p>
+                                <p class="mb-2"><strong>平台:</strong> <span id="osPlatform"></span></p>
+                                <p class="mb-2"><strong>Python版本:</strong> <span id="pythonVersion"></span></p>
+                                <p class="mb-0"><strong>启动时间:</strong> <span id="bootTime"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Logs -->
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">系统日志 (最近100行)</h6>
+                        <div class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto;">
+                            <pre class="mb-0" id="systemLogs" style="font-size: 0.875rem;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shutdown Confirmation Modal -->
+    <div class="modal fade" id="shutdownModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认关机</h5>
+                    <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+                </div>
+                <div class="modal-body">
+                    确定要关闭系统吗？
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                    <button class="btn btn-danger" onclick="controlSystem('shutdown')" type="button">确认关机</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reboot Confirmation Modal -->
+    <div class="modal fade" id="rebootModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认重启</h5>
+                    <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+                </div>
+                <div class="modal-body">
+                    确定要重启系统吗？
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                    <button class="btn btn-warning" onclick="controlSystem('reboot')" type="button">确认重启</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div> <!-- 关闭 .main-content -->
 <!-- 加载动画 -->
 <div class="loading-overlay" id="loadingOverlay" style="display: none;">
@@ -409,12 +719,18 @@
         <span class="visually-hidden">Loading...</span>
     </div>
 </div>
-<div class="video-player-overlay" id="videoPlayerOverlay" onclick="closeVideoPlayer()">
-    <div class="video-player-container" onclick="event.stopPropagation()">
-        <span class="video-player-close-btn" onclick="closeVideoPlayer()">&times;</span>
-        <video controls id="videoPlayer"></video>
+<div class="video-player-overlay" id="videoPlayerOverlay">
+    <div class="video-player-container">
+        <div class="video-player-header">
+            <h5 class="video-title text-white mb-0"></h5>
+            <span class="video-player-close-btn" onclick="closeVideoPlayer()">&times;</span>
+        </div>
+        <div class="video-wrapper">
+            <video controls id="videoPlayer"></video>
+        </div>
     </div>
 </div>
+
 
 <script src="/static/bootstrap.bundle.min.js"></script>
 <script>
@@ -422,109 +738,134 @@
         // 分页相关变量
         let currentPage = 1;
         const pageSize = 20;
+        let currentVideoList = []; // 存储当前视频列表
 
-        // 导航链接处理
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                this.classList.add('active');
+        // 渲染视频列表
+        function renderVideoList(videos) {
+            currentVideoList = videos; // 保存当前视频列表
+            const tableBody = document.getElementById('video-table-body');
+            const cardContainer = document.getElementById('video-cards');
 
-                const targetPage = this.getAttribute('data-page');
-                console.log(`目标页面: ${targetPage}`);
+            if (window.innerWidth < 768) {
+                cardContainer.innerHTML = videos.map(video => `
+                <div class="video-card">
+                    <img src="${video.cover}" alt="${video.title}" class="card-img">
+                    <div class="card-content">
+                        <h3 class="video-title">${video.title}</h3>
+                        <div class="video-stats">
+                            <i class="fas fa-play"></i> ${video.watch}
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary btn-sm" onclick="playVideo('${video.url}', '${video.title}')">
+                                播放
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="deleteVideo('${video.url}')">
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            } else {
+                tableBody.innerHTML = videos.map(video => `
+                <tr>
+                    <td class="truncate">${video.title}</td>
+                    <td><img src="${video.cover}" alt="封面" style="height: 50px;"></td>
+                    <td>${video.watch}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="playVideo('${video.url}', '${video.title}')">播放</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVideo('${video.url}')">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+            }
+        }
 
-                document.querySelectorAll('.content-page').forEach(page => {
-                    page.style.display = 'none';
-                });
+        // 创建分页控件
+        function createPagination(totalPages, currentPage, elementId) {
+            const pagination = document.getElementById(elementId);
+            if (!pagination) return;
 
-                const targetElement = document.getElementById(targetPage);
-                if (targetElement) {
-                    targetElement.style.display = 'block';
-                    if (targetPage === 'statistics') {
-                        loadStatistics();
-                    } else if (targetPage === 'download-task') {
-                        loadDownloadTasks();
-                    }
-                } else {
-                    console.error(`找不到目标元素，ID为: ${targetPage}`);
+            pagination.innerHTML = '';
+
+            function addPageButton(page, text) {
+                const li = document.createElement('li');
+                li.className = `page-item ${page === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="event.preventDefault(); loadPage('${elementId === 'download-pagination' ? 'download' : 'video'}', ${page})">${text}</a>`;
+                pagination.appendChild(li);
+            }
+
+            addPageButton(1, '1');
+
+            if (currentPage > 3) {
+                addPageButton(null, '...');
+            }
+
+            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                if (i <= currentPage + 1 && i >= currentPage - 1) {
+                    addPageButton(i, i.toString());
                 }
-            });
-        });
+            }
 
-        // 修复问题1：创建pagination元素
-        const downloadTaskPage = document.getElementById('download-task');
-        if (!document.getElementById('download-pagination')) {
-            const paginationNav = document.createElement('nav');
-            paginationNav.setAttribute('aria-label', 'Page navigation');
-            paginationNav.style.marginTop = '20px';
-            const paginationUl = document.createElement('ul');
-            paginationUl.className = 'pagination justify-content-center';
-            paginationUl.id = 'download-pagination';
-            paginationNav.appendChild(paginationUl);
-            downloadTaskPage.querySelector('.card').appendChild(paginationNav);
+            if (currentPage < totalPages - 2) {
+                addPageButton(null, '...');
+            }
+
+            if (totalPages > 1) {
+                addPageButton(totalPages, totalPages.toString());
+            }
         }
 
-        // 开始下载任务按钮处理
-        const startDownloadTasksBtn = document.getElementById('startDownloadTasksBtn');
-        if (startDownloadTasksBtn) {
-            startDownloadTasksBtn.addEventListener('click', function () {
-                this.disabled = true;
-                fetch('/api/download_all', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+        // 加载视频列表
+        window.loadVideos = function (page) {
+            currentPage = page;
+            fetch(`/api/get_video_list?page=${page}&page_size=${pageSize}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderVideoList(data.videos);
+                    const totalPages = Math.ceil(data.total / pageSize);
+                    createPagination(totalPages, page, 'pagination');
                 })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.code === 200) {
-                            alert('下载成功');
-                            loadDownloadTasks();
-                        } else {
-                            alert('启动失败');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('启动下载任务失败:', error);
-                        alert('启动下载任务失败，请重试');
-                    })
-                    .finally(() => {
-                        this.disabled = false;
-                    });
-            });
-        }
-
-        // 视频播放功能
-        window.playVideo = function (videoUrl) {
-            const videoPlayer = document.getElementById('videoPlayer');
-            const overlay = document.getElementById('videoPlayerOverlay');
-
-            videoPlayer.src = videoUrl;
-            videoPlayer.load();
-
-            videoPlayer.onerror = function () {
-                console.error('Video loading error:', videoPlayer.error);
-                alert('视频加载失败，请检查视频地址是否正确');
-            };
-
-            videoPlayer.play().catch(function (error) {
-                console.error('Video playback error:', error);
-                alert('视频播放失败：' + error.message);
-            });
-
-            overlay.style.display = 'flex';
+                .catch(error => {
+                    console.error('获取视频列表失败:', error);
+                });
         };
 
-        // 视频播放器关闭功能
+        // 页面加载功能
+        window.loadPage = function (type, page) {
+            if (type === 'video') {
+                loadVideos(page);
+            } else if (type === 'download') {
+                loadDownloadTasks(page);
+            }
+        };
+
+        // 播放视频
+        window.playVideo = function (url, title) {
+            const overlay = document.getElementById('videoPlayerOverlay');
+            const player = document.getElementById('videoPlayer');
+            const titleElement = document.querySelector('.video-title');
+
+            player.src = url;
+            titleElement.textContent = title;
+            overlay.style.display = 'block';
+            player.play().catch(error => {
+                console.error('视频播放失败:', error);
+                alert('视频播放失败，请重试');
+            });
+        };
+
+        // 关闭视频播放器
         window.closeVideoPlayer = function () {
             const overlay = document.getElementById('videoPlayerOverlay');
-            const videoPlayer = document.getElementById('videoPlayer');
-            videoPlayer.pause();
-            videoPlayer.removeAttribute('src'); // 修复问题3
+            const player = document.getElementById('videoPlayer');
+
+            player.pause();
+            player.src = '';
             overlay.style.display = 'none';
         };
 
-        // 删除视频功能
+        // 删除视频
         window.deleteVideo = function (videoUrl) {
             if (confirm('确定要删除这个视频吗？')) {
                 fetch('/api/manage/delete', {
@@ -550,83 +891,69 @@
             }
         };
 
-        // 分页功能
-        function createPagination(totalPages, currentPage, elementId) {
-            const pagination = document.getElementById(elementId);
-            if (!pagination) return; // 防止空引用错误
+        // 导航链接处理
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
 
-            pagination.innerHTML = '';
-
-            function addPageButton(page, text) {
-                const li = document.createElement('li');
-                li.className = `page-item ${page === currentPage ? 'active' : ''}`;
-                li.innerHTML = `<a class="page-link" href="#" onclick="event.preventDefault(); loadPage('${elementId === 'download-pagination' ? 'download' : 'video'}', ${page})">${text}</a>`;
-                pagination.appendChild(li);
-            }
-
-            // 添加页码按钮
-            addPageButton(1, '1');
-
-            if (currentPage > 3) {
-                addPageButton(null, '...');
-            }
-
-            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-                if (i <= currentPage + 1 && i >= currentPage - 1) {
-                    addPageButton(i, i.toString());
-                }
-            }
-
-            if (currentPage < totalPages - 2) {
-                addPageButton(null, '...');
-            }
-
-            if (totalPages > 1) {
-                addPageButton(totalPages, totalPages.toString());
-            }
-        }
-
-        // 页面加载功能
-        window.loadPage = function (type, page) {
-            if (type === 'video') {
-                loadVideos(page);
-            } else if (type === 'download') {
-                loadDownloadTasks(page);
-            }
-        }
-
-        // 加载视频列表
-        window.loadVideos = function (page) {
-            currentPage = page;
-            fetch(`/api/get_video_list?page=${page}&page_size=${pageSize}`)
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.getElementById('video-table-body');
-                    tableBody.innerHTML = '';
-
-                    data.videos.forEach(video => {
-                        const row = `
-                        <tr>
-                            <td class="truncate">${video.title}</td>
-                            <td><img src="${video.cover}" alt="封面" style="height: 50px;"></td>
-                            <td>${video.watch}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="playVideo('${video.url}')">播放</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteVideo('${video.url}')">删除</button>
-                            </td>
-                        </tr>
-                    `;
-                        tableBody.innerHTML += row;
-                    });
-
-                    const totalPages = Math.ceil(data.total / pageSize);
-                    createPagination(totalPages, page, 'pagination');
-                })
-                .catch(error => {
-                    console.error('获取视频列表失败:', error);
+                const targetPage = this.getAttribute('data-page');
+                document.querySelectorAll('.content-page').forEach(page => {
+                    page.style.display = 'none';
                 });
-        };
 
+                const targetElement = document.getElementById(targetPage);
+                if (targetElement) {
+                    targetElement.style.display = 'block';
+                    if (targetPage === 'statistics') {
+                        loadStatistics();
+                    } else if (targetPage === 'download-task') {
+                        loadDownloadTasks();
+                    } else if (targetPage === 'video-list') {
+                        loadVideos(1); // 加载第一页视频
+                    }
+                }
+            });
+        });
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', () => {
+            if (currentVideoList.length > 0) {
+                renderVideoList(currentVideoList);
+            }
+        });
+
+        // 点击遮罩层关闭视频
+        document.getElementById('videoPlayerOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('videoPlayerOverlay')) {
+                closeVideoPlayer();
+            }
+        });
+
+        // 移动端导航切换
+        document.querySelector('.nav-toggle').addEventListener('click', function () {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        // 点击导航链接时关闭侧边栏（仅在移动端）
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function () {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                }
+            });
+        });
+
+        // 点击主内容区域时关闭侧边栏（仅在移动端）
+        document.querySelector('.main-content').addEventListener('click', function () {
+            if (window.innerWidth <= 768) {
+                document.querySelector('.sidebar').classList.remove('active');
+            }
+        });
+
+        // 初始加载第一页视频
+        loadVideos(1);
         // 加载下载任务列表
         window.loadDownloadTasks = function (page = 1) {
             fetch(`/api/download_status?page=${page}&count=${pageSize}`)
@@ -678,6 +1005,28 @@
                     console.error('获取下载任务状态失败:', error);
                 });
         };
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        // 处理文件选择
+        fileInput.addEventListener('change', handleFiles);
+
+        // 处理拖放
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            uploadFiles(files);
+        });
 
         // 加载统计信息
         function loadStatistics() {
@@ -738,9 +1087,9 @@
                         });
 
                         // 移除系统资源柱状图，改为直接显示数字
-                        document.getElementById('diskWriteCount').textContent = `${data.disk_write_count} GB`;
-                        document.getElementById('diskReadCount').textContent = `${data.disk_read_count} GB`;
-                        document.getElementById('networkOutCount').textContent = `${data.Network_out_count} GB`;
+                        document.getElementById('diskWriteCount').textContent = `${(data.disk_write_count / 1048576).toFixed(2)} GB`;
+                        document.getElementById('diskReadCount').textContent = `${(data.disk_read_count / 1048576).toFixed(2)} GB`;
+                        document.getElementById('networkOutCount').textContent = `${(data.Network_out_count / 1048576).toFixed(2)} GB`;
 
                         // 更新词云图
                         document.getElementById('wordcloudImage').src = data.wordcloud; // 假设 data.wordcloud 是相对路径
@@ -756,9 +1105,108 @@
 
         }
 
+        function handleFiles(e) {
+            const files = e.target.files;
+            uploadFiles(files);
+        }
+
+        function uploadFiles(files) {
+            const formData = new FormData();
+
+            for (let file of files) {
+                formData.append('files[]', file);
+            }
+
+            fetch('/api/upload_videos', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 200) {
+                        alert('上传成功');
+                    }
+                })
+                .catch(error => {
+                    console.error('上传失败:', error);
+                    alert('上传失败');
+                });
+        }
+
         // 初始加载
         loadVideos(1);
+        // });
     });
+
+
+    function updateSystemInfo(data) {
+        document.getElementById('cpuModel').textContent = data.cpu_model;
+        document.getElementById('cpuUsage').textContent = data.cpu_usage;
+        document.getElementById('cpuFrequency').textContent = data.cpu_frequency;
+        document.getElementById('memoryTotal').textContent = data.memory_total + ' GB';
+        document.getElementById('memoryUsed').textContent = data.memory_used + ' GB';
+
+        // Update memory usage bar
+        const usagePercentage = (data.memory_used / data.memory_total) * 100;
+        const memoryBar = document.getElementById('memoryUsageBar');
+        memoryBar.style.width = `${usagePercentage}%`;
+        memoryBar.className = `progress-bar ${usagePercentage > 80 ? 'bg-danger' : usagePercentage > 60 ? 'bg-warning' : 'bg-success'}`;
+
+        document.getElementById('osVersion').textContent = data.os_version;
+        document.getElementById('osPlatform').textContent = data.os_platform;
+        document.getElementById('pythonVersion').textContent = data.python_version;
+        document.getElementById('bootTime').textContent = data.boot_time;
+
+        // Update network interfaces
+        const networkDiv = document.getElementById('networkInterfaces');
+        networkDiv.innerHTML = Object.entries(data.network_interfaces)
+            .map(([name, info]) => `<p class="mb-2"><strong>${name}:</strong> ${info}</p>`)
+            .join('');
+
+        // Update system logs
+        document.getElementById('systemLogs').textContent = data.log_last_100_lines.join('\n');
+    }
+
+    // Function to control system (shutdown/reboot)
+    async function controlSystem(action) {
+        try {
+            const response = await fetch('/api/control', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({action})
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Close the modal
+            const modal = bootstrap.Modal.getInstance(document.querySelector(`#${action}Modal`));
+            modal.hide();
+
+            // Show success message
+            alert(`系统${action === 'shutdown' ? '关机' : '重启'}指令已发送`);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('操作失败，请检查系统日志');
+        }
+    }
+
+    // Fetch system info every 5 seconds when the system monitor page is visible
+    setInterval(() => {
+        const systemMonitorPage = document.getElementById('system-monitor');
+        // Check if the element is currently displayed by checking its style.display value.
+        const isDisplayed = systemMonitorPage.style.display !== 'none';
+
+        if (isDisplayed) {
+            fetch('/api/systemstatus')
+                .then(response => response.json())
+                .then(data => updateSystemInfo(data))
+                .catch(error => console.error('Error fetching system info:', error));
+        }
+    }, 5000);
 </script>
 </body>
 </html>

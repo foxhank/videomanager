@@ -1,8 +1,7 @@
 import string
 from urllib.parse import urlparse, parse_qs, urlunparse
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
-import datetime
 from functions.calculate_md5 import *
 from functions.download import *
 from functions.update_info import *
@@ -13,7 +12,13 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
+import magic
+import platform
+import subprocess
+import psutil
 import shutil
+import sys
+import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -57,14 +62,16 @@ def init(db_name):
                         id INTEGER PRIMARY KEY,
                         title TEXT,
                         cover TEXT,
-                        watch INTEGER default 0
+                        watch INTEGER default 0,
+                        tags TEXT
                         )     
             """)
             c.execute("""CREATE TABLE IF NOT EXISTS downloads (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
             url TEXT NOT NULL,
-            status INTEGER default 0
+            status INTEGER default 0,
+            tags TEXT
             )
             """)
             c.execute("""CREATE TABLE IF NOT EXISTS system_settings (
@@ -149,8 +156,7 @@ def update():
         # 计算文件数量
         video_count = len([f for f in os.listdir("files") if os.path.isfile(os.path.join("files", f))])
 
-
-        storage_space_used_bytes = get_directory_size("files")
+        storage_space_used_bytes = get_directory_size("files") + get_directory_size("Downloads")
         # 更新或插入新的记录
         update_or_insert('storage_space_used', str(storage_space_used_bytes / 1024 / 1024))
         update_or_insert('disk_write_count', str(disk_write_used))
@@ -161,7 +167,7 @@ def update():
         conn.commit()
 
 
-def insert_video(title):
+def insert_video(title, tags=None):
     video_file_path = f"{video_path}/{title}.mp4"
     if not os.path.exists(video_file_path):
         write_log(f"{title}视频文件不存在，请检查", level="error")
@@ -186,7 +192,14 @@ def insert_video(title):
 
     conn = sqlite3.connect(database)
     c = conn.cursor()
-    c.execute("INSERT INTO videos (title, cover) VALUES (?, ?)", (title, thumbnail_file_path))
+
+    if tags is not None and isinstance(tags, list) and len(tags) > 0:
+        # 将 tags 列表转换为逗号分隔的字符串
+        tags_str = ','.join(tags)
+        c.execute("INSERT INTO videos (title, cover, tags) VALUES (?, ?, ?)", (title, thumbnail_file_path, tags_str))
+    else:
+        c.execute("INSERT INTO videos (title, cover) VALUES (?, ?)", (title, thumbnail_file_path))
+
     conn.commit()
     write_log(f"成功保存视频:{title}")
     conn.close()
@@ -213,9 +226,6 @@ def get_system_setting():
         'storage_space_used',
         'video_count',
         'database_created_date',
-        'disk_write_count',
-        'disk_read_count',
-        'Network_out_count'
     ]
 
     # 初始化一个字典来保存结果
@@ -350,6 +360,7 @@ def get_video_list():
         "title": video[1],
         "cover": video[2],
         "watch": video[3],
+        "tags": video[4],
         "url": f"files/{video[1]}.mp4"
     } for video in videos]
 
@@ -381,6 +392,7 @@ def get_random_video_list():
             "title": video[1],
             "cover": video[2],
             "watch": video[3],
+            "tags": video[4],
             "url": f"files/{sanitize_filename(video[1])}.mp4"  # 确保文件名安全
         } for video in videos]
 
@@ -411,8 +423,9 @@ def get_video_by_id(id):
         title = video[1]
         cover = video[2]
         watch = video[3]
+        tags = video[4]
         url = f"/{video_path}/{title}.mp4"
-        return jsonify({"status": 200, "title": title, "cover": cover, "watch": watch, "url": url})
+        return jsonify({"status": 200, "title": title, "cover": cover, "watch": watch, "url": url, "tags": tags})
     else:
         return jsonify({"status": 404, "message": "Video not found"}), 404
 
@@ -427,7 +440,7 @@ def delete_video():
         return jsonify({"error": "URL not provided"}), 400
 
     # 假设URL格式为 "/files/title.mp4"
-    if not url.startswith("/files/") or not url.endswith(".mp4"):
+    if not url.startswith("files/") or not url.endswith(".mp4"):
         return jsonify({"error": "Invalid URL format"}), 400
 
     # 提取title部分
@@ -451,6 +464,7 @@ def delete_video():
 def download_task():
     data = request.get_json()
     videos = data.get('videos')
+
     conn = sqlite3.connect(database)
     c = conn.cursor()
     failed_count = 0
@@ -458,6 +472,8 @@ def download_task():
     for video in videos:
         url = video.get('url')
         title = video.get('title')
+        tags = video.get('tags', "")
+        print("接受:{}".format(tags))
 
         if url and title:
             # 解析URL并获取路径部分
@@ -486,7 +502,11 @@ def download_task():
                 else:
                     break
 
-            c.execute("INSERT INTO downloads (url, title) VALUES (?, ?)", (url, title))
+            if tags:
+                c.execute("INSERT INTO downloads (url, title, tags) VALUES (?, ?, ?)", (url, title, tags))
+            else:
+                c.execute("INSERT INTO downloads (url, title) VALUES (?, ?)", (url, title))
+
             conn.commit()
             write_log("已成功记录视频：{}".format(title))
             print("已成功记录视频：{}".format(title))
@@ -545,7 +565,7 @@ def download_all():
     videos = c.fetchall()
     conn.close()
     for video in videos:
-        download(video[0], video[1], video[2])
+        download(video[0], video[1], video[2], video[3])
     return jsonify({"code": 200, "message": "success"})
 
 
@@ -565,7 +585,7 @@ def create_xpcloud():
     all_titles = re.sub(r'\s+', ' ', all_titles).strip()
 
     # 去除语气助词（假设语气助词列表为 ['啊', '吧', '嘛', '呢', '哦', '呀', '吗']）
-    tones = ['啊', '吧', '嘛', '呢', '哦', '呀', '吗']
+    tones = ['啊', '吧', '嘛', '呢', '哦', '呀', '吗', '的', '得', '地', 'XVIDEOSCOM']
     for tone in tones:
         all_titles = all_titles.replace(tone, '')
 
@@ -575,7 +595,6 @@ def create_xpcloud():
     # 绘制词云
     wordcloud = WordCloud(font_path='msyh.ttc', width=800, height=400, background_color='white').generate(
         ' '.join(words))
-
 
     # 获取当前日期
     current_date = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -628,6 +647,20 @@ def statistics():
         print(f"Error calculating storage percentage: {e}")
         storage_total_percent_formatted = 0.00
 
+    # 读取历史统计
+    with open('/var/lib/io_stats/data.json', 'r') as file:
+        history_data = json.load(file)
+
+    # 获取当前开机后的统计
+    current_disk_write_kb = get_disk_write_from_proc()
+    current_disk_read_kb = get_disk_read_from_proc()
+    current_network_out_kb = get_network_out_from_proc()
+
+    # 如果有历史数据，则相加；否则只使用当前开机后的统计
+    total_disk_write_kb = history_data.get('written_kb', 0) + (current_disk_write_kb or 0)
+    total_disk_read_kb = history_data.get('read_kb', 0) + (current_disk_read_kb or 0)
+    total_network_out_kb = history_data.get('sent_bytes', 0) / 1024 + (current_network_out_kb or 0)  # 转换为KB
+
     # 返回JSON响应
     response_data = {
         "code": 200,
@@ -635,13 +668,203 @@ def statistics():
         "storage_space_used": storage_used_str,
         "video_count": system_settings.get('video_count', '0'),
         "database_created_date": system_settings.get('database_created_date', ''),
-        "disk_write_count": system_settings.get('disk_write_count', '0'),
-        "disk_read_count": system_settings.get('disk_read_count', '0'),
-        "Network_out_count": system_settings.get('Network_out_count', '0'),
+        "disk_write_count": f"{total_disk_write_kb:.2f}",  # 保留两位小数
+        "disk_read_count": f"{total_disk_read_kb:.2f}",  # 保留两位小数
+        "Network_out_count": f"{total_network_out_kb:.2f}",  # 保留两位小数
         "storage_space_used_percent": storage_total_percent_formatted
     }
 
     return jsonify(response_data)
+
+
+# 文件浏览功能
+# 设置你的根目录
+BASE_DIR = 'Downloads/'
+
+VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv']
+
+
+def is_video_file(filepath):
+    return os.path.isfile(filepath) and any(
+        filepath.lower().endswith(ext) for ext in VIDEO_EXTENSIONS
+    )
+
+
+def list_dir(dir_path):
+    """列出目录下的子目录和视频文件"""
+    items = os.listdir(dir_path)
+    result = {"folders": [], "videos": []}
+    for item in items:
+        full_path = os.path.join(dir_path, item)
+        if os.path.isdir(full_path):
+            result["folders"].append({"name": item, "path": full_path.replace(BASE_DIR, '', 1)})
+        elif is_video_file(full_path):  # 使用is_video_file代替之前的is_video
+            result["videos"].append({"name": item, "path": full_path.replace(BASE_DIR, '', 1)})
+    return result
+
+
+@app.route('/browse/', defaults={'subpath': ''}, methods=['GET'])
+@app.route('/browse/<path:subpath>', methods=['GET'])
+def browse(subpath):
+    dir_path = os.path.join(BASE_DIR, subpath)
+    if not os.path.exists(dir_path) or not os.path.isdir(dir_path):
+        return jsonify({"success": False, "message": "Directory does not exist!"}), 404
+
+    items = list_dir(dir_path)
+    return jsonify(items)  # 确保返回的数据结构符合前端的期望
+
+
+# def list_dir(dir_path):
+#     """列出目录下的子目录和视频文件"""
+#     items = os.listdir(dir_path)
+#     result = {"folders": [], "videos": []}
+#     for item in items:
+#         full_path = os.path.join(dir_path, item)
+#         if os.path.isdir(full_path):
+#             result["folders"].append({"name": item, "path": full_path.replace(BASE_DIR, '', 1)})
+#         elif is_video(full_path):
+#             result["videos"].append({"name": item, "path": full_path.replace(BASE_DIR, '', 1)})
+#     return result
+
+# @app.route('/browse/', defaults={'subpath': ''}, methods=['GET'])
+# @app.route('/browse/<path:subpath>', methods=['GET'])
+# def browse(subpath):
+#     dir_path = os.path.join(BASE_DIR, subpath)
+#     if not os.path.exists(dir_path) or not os.path.isdir(dir_path):
+#         return jsonify({"success": False, "message": "Directory does not exist!"}), 404
+
+#     items = list_dir(dir_path)
+#     return jsonify(items)  # Ensure this returns a list
+
+
+@app.route('/play/<path:videopath>', methods=['GET'])
+def play_video(videopath):
+    video_full_path = os.path.join(BASE_DIR, videopath)
+    directory, filename = os.path.split(video_full_path)
+    return send_from_directory(directory, filename, mimetype=magic.Magic(mime=True).from_file(video_full_path))
+
+
+
+
+
+def get_cpu_info():
+    # 尝试使用 platform.processor()
+    cpu_model = platform.processor()
+    if not cpu_model:
+        # 如果 platform.processor() 返回空值，尝试其他方法
+        try:
+            # 使用 subprocess 调用系统命令
+            if platform.system() == "Windows":
+                # 使用 wmic 命令获取 CPU 信息
+                result = subprocess.run(['wmic', 'cpu', 'get', 'Name'], capture_output=True, text=True)
+                cpu_model = result.stdout.strip().split('\n')[1].strip()
+            elif platform.system() == "Linux":
+                # 使用 lscpu 命令获取 CPU 信息
+                result = subprocess.run(['lscpu'], capture_output=True, text=True)
+                for line in result.stdout.split('\n'):
+                    if "Model name" in line:
+                        cpu_model = line.split(':')[1].strip()
+                        break
+        except Exception as e:
+            print(f"获取 CPU 信息时发生错误: {e}")
+            cpu_model = "未知"
+
+    return cpu_model
+
+
+@app.route('/api/systemstatus', methods=['GET'])
+def systemstatus():
+    # 获取CPU使用率
+    cpu_usage = psutil.cpu_percent(interval=1)
+    cpu_model = get_cpu_info()
+    cpu_cores = psutil.cpu_count(logical=False)
+    cpu_threads = psutil.cpu_count(logical=True)
+    cpu_freq = psutil.cpu_freq().current if psutil.cpu_freq() else "未知"
+
+    # 获取内存信息
+    memory = psutil.virtual_memory()
+    memory_total = memory.total / (1024 ** 3)  # 转换为GB
+    memory_used = memory.used / (1024 ** 3)  # 转换为GB
+
+# 读取log.txt最后一百行并倒序返回
+    try:
+        with open('log.txt', 'r', encoding='utf-8') as file:
+            log_lines = file.readlines()[-100:]
+            log_lines.reverse()  # 倒序排列
+    except FileNotFoundError:
+        log_lines = []
+
+
+    # 获取操作系统版本
+    os_version = platform.version()
+    os_platform = platform.platform()
+
+    # 获取Python版本
+    python_version = sys.version
+
+    # 获取系统启动时间
+    boot_time = datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
+
+    # 获取网络接口信息
+    net_if_addrs = psutil.net_if_addrs()
+    network_interfaces = {interface: [addr.address for addr in addrs] for interface, addrs in net_if_addrs.items()}
+
+    # 获取系统架构
+    system_architecture = platform.architecture()
+
+    # 获取用户信息
+    users = psutil.users()
+    user_info = [{"name": user.name, "terminal": user.terminal, "host": user.host,
+                  "started": datetime.datetime.fromtimestamp(user.started).strftime("%Y-%m-%d %H:%M:%S")} for user in
+                 users]
+
+    if cpu_freq >= 1000:
+        cpu_freq_ghz = cpu_freq / 1000
+        cpu_frequency_str = f"{cpu_freq_ghz:.2f} GHz"
+    else:
+        cpu_frequency_str = f"{cpu_freq:.2f} MHz"
+
+    # 构建响应数据
+    response_data = {
+        "cpu_model": f"{cpu_model} ({cpu_cores}核心{cpu_threads}线程)",
+        "cpu_usage": f"{cpu_usage}",
+        "cpu_frequency": cpu_frequency_str,
+        "memory_total": f"{memory_total:.2f}",
+        "memory_used": f"{memory_used:.2f}",
+        "log_last_100_lines": log_lines,
+        "os_version": os_version,
+        "os_platform": os_platform,
+        "python_version": python_version,
+        "boot_time": boot_time,
+        "network_interfaces": network_interfaces,
+        "system_architecture": {
+            "bit": system_architecture[0],
+            "format": system_architecture[1]
+        },
+        "users": user_info,
+    }
+
+    return jsonify(response_data)
+
+
+@app.route("/api/control", methods=["POST"])
+def control():
+    data = request.get_json()
+    if not data or "action" not in data:
+        return jsonify({"message": "无效的操作"}), 400
+
+    action = data["action"]
+    if action == "restart":
+        # 使用 subprocess.Popen 异步执行重启命令
+        subprocess.Popen(["sudo", "reboot"])
+        return jsonify({"message": "正在重启"}), 200
+    elif action == "shutdown":
+        # 使用 subprocess.Popen 异步执行关机命令
+        subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+        return jsonify({"message": "正在关机"}), 200
+    else:
+        return jsonify({"message": "无效的操作"}), 400
+
 
 
 if __name__ == '__main__':

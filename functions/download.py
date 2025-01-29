@@ -82,7 +82,7 @@ def clean_status_file():
     os.remove('./.status.json')
 
 
-def insert_video(title):
+def insert_video(title, tags=None):
     video_file_path = f"files/{title}.mp4"
     if not os.path.exists(video_file_path):
         write_log(f"{title}视频文件不存在，请检查", level="error")
@@ -107,13 +107,18 @@ def insert_video(title):
 
     conn = sqlite3.connect(database)
     c = conn.cursor()
-    c.execute("INSERT INTO videos (title, cover) VALUES (?, ?)", (title, thumbnail_file_path))
+
+    if tags:
+        c.execute("INSERT INTO videos (title, cover, tags) VALUES (?, ?, ?)", (title, thumbnail_file_path, tags))
+    else:
+        c.execute("INSERT INTO videos (title, cover) VALUES (?, ?)", (title, thumbnail_file_path))
+
     conn.commit()
     write_log(f"成功保存视频:{title}")
     conn.close()
 
 
-def download(video_id, title, url):
+def download(video_id, title, url, tags=None):
     # 确保下载目录存在
     download_folder = 'files/'
     if not os.path.exists(download_folder):
@@ -139,55 +144,51 @@ def download(video_id, title, url):
         # 执行命令
         result = subprocess.run(download_command, check=True)
         write_log(f"视频ID：{video_id} 下载成功")
-        insert_video(sanitized_title)  # 使用sanitized_title而不是原始title
+        insert_video(sanitized_title, tags)  # 使用sanitized_title而不是原始title
 
         # 检查文件是否已存在且非空
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             # 更新数据库记录为已下载
-            update_query = f"UPDATE downloads SET status = 1 WHERE id = {video_id}"
-            connection = sqlite3.connect(database)
-            c = connection.cursor()
-            c.execute(update_query)
-            connection.commit()
+            update_query = "UPDATE downloads SET status = 1 WHERE id = ?"
+            with sqlite3.connect(database) as connection:
+                connection.execute(update_query, (video_id,))
+                connection.commit()
             write_log(f"视频ID：{video_id} , {sanitized_title}已成功下载.")
             return True
         else:
             write_log(f"视频ID：{video_id} 下载过程中出现问题，输出文件不存在或为空.")
             # 更新数据库记录为下载失败
-            update_query = f"UPDATE downloads SET status = 2 WHERE id = {video_id}"
-            connection = sqlite3.connect(database)
-            c = connection.cursor()
-            c.execute(update_query)
-            connection.commit()
+            update_query = "UPDATE downloads SET status = 2 WHERE id = ?"
+            with sqlite3.connect(database) as connection:
+                connection.execute(update_query, (video_id,))
+                connection.commit()
             return False
 
     except Exception as e:
         write_log(f"视频ID：{video_id} 下载失败: {e}")
         # 更新数据库记录为下载失败
-        update_query = f"UPDATE downloads SET status = 2 WHERE id = {video_id}"  # Changed status to 2 for consistency
-        connection = sqlite3.connect(database)
-        c = connection.cursor()
-        c.execute(update_query)
-        connection.commit()
+        update_query = "UPDATE downloads SET status = 2 WHERE id = ?"
+        with sqlite3.connect(database) as connection:
+            connection.execute(update_query, (video_id,))
+            connection.commit()
         return False
 
 
 def download_with_status(video):
-    video_id, video_name, video_url, status = video
-    success = download(video_id, video_name, video_url)
+    video_id, video_name, video_url, tags, status = video
+    success = download(video_id, video_name, video_url, tags)
     return success, video_id, video_name
 
 
 
 def download_all():
-    connection = sqlite3.connect(database)
-    c = connection.cursor()
-    check_status_file_exist()
+    with sqlite3.connect(database) as connection:
+        c = connection.cursor()
+        check_status_file_exist()
 
-    # 获取所有未完成下载的视频记录
-    c.execute("SELECT * FROM downloads WHERE status != 1")
-    videos = c.fetchall()
-    connection.close()
+        # 获取所有未完成下载的视频记录，包括tags字段
+        c.execute("SELECT id, name, url, tags FROM downloads WHERE status != 1")
+        videos = c.fetchall()
 
     # 设置进程池大小为CPU核心数（这里假设是4）
     max_workers = os.cpu_count() or 4
