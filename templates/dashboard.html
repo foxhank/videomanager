@@ -1207,6 +1207,50 @@
                 .catch(error => console.error('Error fetching system info:', error));
         }
     }, 5000);
+
+    document.getElementById('startDownloadTasksBtn').addEventListener('click', function () {
+        const button = this
+
+        button.disabled = true;
+        button.classList.add('btn-secondary');
+        button.classList.remove('btn-primary');
+        button.textContent = '正在下载...';
+        button.setAttribute('data-loading', 'true');
+        startDownloadTasks(button);
+    });
+
+    function startDownloadTasks(button) {
+        console.log('开始下载任务');
+        // 例如，可以发送一个请求到服务器启动下载任务
+        fetch('/api/download_all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.code === 200) {
+                    alert('所有视频均成功下载');
+                    // 刷新下载任务列表
+                } else {
+                    alert(`启动下载任务失败：${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('启动下载任务失败:', error);
+                alert('启动下载任务失败，请重试');
+            })
+        .finally(() => {
+        // 启用按钮并恢复样式
+        button.disabled = false;
+        button.classList.remove('btn-secondary');
+        button.classList.add('btn-primary');
+        button.textContent = '开始下载任务';
+        button.setAttribute('data-loading', 'false');
+        });
+    }
+
 </script>
 </body>
 </html>
